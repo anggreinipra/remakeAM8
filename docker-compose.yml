@@ -1,0 +1,41 @@
+services:
+  web:
+    build: .
+    container_name: revobank-api
+    ports:
+      - '5000:5000'
+    env_file:
+      - .env
+    depends_on:
+      - db
+    volumes:
+      - .:/app
+    restart: always
+
+  db:
+    image: postgres:15
+    container_name: revobank-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: revobank
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: always
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: revobank-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@revobank.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - '5050:80'
+    depends_on:
+      - db
+    restart: always
+
+volumes:
+  pgdata:
