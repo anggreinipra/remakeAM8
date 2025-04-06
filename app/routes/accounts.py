@@ -1,8 +1,10 @@
+import random
+from datetime import datetime
 from flask import Blueprint, request, jsonify
 from app.db import db
 from app.models.accounts import Account
-from app.utils.auth import verify_token
 from app.models.users import User
+from app.utils.auth import verify_token
 
 account_bp = Blueprint("accounts", __name__)
 
@@ -13,23 +15,45 @@ def get_user_id_from_request(request):
     token = auth_header.split(" ")[1]
     return verify_token(token)
 
+# Helper untuk generate account number unik sesuai dengan format yang diinginkan
+def generate_unique_account_number():
+    today_str = datetime.now().strftime("%d%m%y")
+    while True:
+        random_digits = ''.join([str(random.randint(0, 9)) for _ in range(6)])
+        account_number = f"{today_str}-{random_digits}"
+        # Cek apakah account_number sudah ada
+        if not Account.query.filter_by(account_number=account_number).first():
+            return account_number
+
 @account_bp.route("", methods=["POST"])
 def create_account():
     user_id = get_user_id_from_request(request)
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
 
-    data = request.json
-    account_type = data.get("account_type")
-    account_number = data.get("account_number")
+    data = request.json or {}
 
-    if not all([account_type, account_number]):
-        return jsonify({"error": "Semua field wajib diisi"}), 400
+    account_type = data.get("account_type", "savings")
 
-    account = Account(user_id=user_id, account_type=account_type, account_number=account_number)
+    # Generate unique account number
+    account_number = generate_unique_account_number()
+
+    # Retrieve the user and create the account
+    user = User.query.get_or_404(user_id)
+    account = Account(
+        user_id=user.id,
+        account_type=account_type,
+        account_number=account_number
+    )
+
     db.session.add(account)
     db.session.commit()
-    return jsonify({"message": "Akun berhasil dibuat", "account_id": account.id}), 201
+
+    return jsonify({
+        "message": "Account successfully created",
+        "account_id": account.id,
+        "account_number": account.account_number
+    }), 201
 
 @account_bp.route("", methods=["GET"])
 def list_accounts():
@@ -58,7 +82,8 @@ def update_account(account_id):
     data = request.json
     account.account_type = data.get("account_type", account.account_type)
     db.session.commit()
-    return jsonify({"message": "Akun diperbarui"})
+
+    return jsonify({"message": "Account updated successfully"})
 
 @account_bp.route("/<int:account_id>", methods=["DELETE"])
 def delete_account(account_id):
@@ -72,4 +97,5 @@ def delete_account(account_id):
 
     db.session.delete(account)
     db.session.commit()
-    return jsonify({"message": "Akun berhasil dihapus"})
+
+    return jsonify({"message": "Account deleted successfully"})

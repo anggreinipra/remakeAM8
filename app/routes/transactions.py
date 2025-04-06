@@ -1,4 +1,3 @@
-
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.models.transactions import Transaction
@@ -14,8 +13,8 @@ transaction_bp = Blueprint("transactions", __name__)
 def create_transaction():
     data = request.get_json()
     trans_type = data.get("type")
-    from_account_id = data.get("from_account_id")
-    to_account_id = data.get("to_account_id")
+    from_account_number = data.get("from_account_number")
+    to_account_number = data.get("to_account_number")
     amount = data.get("amount")
     description = data.get("description", "")
 
@@ -28,20 +27,20 @@ def create_transaction():
     user_id = get_jwt_identity()
 
     if trans_type == "deposit":
-        to_account = Account.query.filter_by(id=to_account_id, user_id=user_id).first()
+        to_account = Account.query.filter_by(account_number=to_account_number, user_id=user_id).first()
         if not to_account:
             return jsonify({"error": "Target account not found"}), 404
         to_account.balance += amount
 
     elif trans_type == "withdrawal":
-        from_account = Account.query.filter_by(id=from_account_id, user_id=user_id).first()
+        from_account = Account.query.filter_by(account_number=from_account_number, user_id=user_id).first()
         if not from_account or from_account.balance < amount:
             return jsonify({"error": "Insufficient balance or account not found"}), 400
         from_account.balance -= amount
 
     elif trans_type == "transfer":
-        from_account = Account.query.filter_by(id=from_account_id, user_id=user_id).first()
-        to_account = Account.query.get(to_account_id)
+        from_account = Account.query.filter_by(account_number=from_account_number, user_id=user_id).first()
+        to_account = Account.query.filter_by(account_number=to_account_number).first()
         if not from_account or not to_account:
             return jsonify({"error": "Account not found"}), 404
         if from_account.balance < amount:
@@ -49,9 +48,10 @@ def create_transaction():
         from_account.balance -= amount
         to_account.balance += amount
 
+    # Membuat transaksi baru dan menyimpan ke database
     transaction = Transaction(
-        from_account_id=from_account_id,
-        to_account_id=to_account_id,
+        from_account_number=from_account_number,
+        to_account_number=to_account_number,
         amount=amount,
         type=trans_type,
         description=description
@@ -62,22 +62,22 @@ def create_transaction():
 
     return jsonify({"message": "Transaction successful"}), 201
 
-# ✅ GET ALL TRANSACTIONS (FILTER OPTIONAL)
+# ✅ GET ALL TRANSACTIONS (FILTER)
 @transaction_bp.route("", methods=["GET"])
 @jwt_required()
 def get_transactions():
     user_id = get_jwt_identity()
-    account_ids = [acc.id for acc in Account.query.filter_by(user_id=user_id).all()]
+    account_numbers = [acc.account_number for acc in Account.query.filter_by(user_id=user_id).all()]
     transactions = Transaction.query.filter(
-        (Transaction.from_account_id.in_(account_ids)) |
-        (Transaction.to_account_id.in_(account_ids))
+        (Transaction.from_account_number.in_(account_numbers)) |
+        (Transaction.to_account_number.in_(account_numbers))
     ).all()
 
     return jsonify([
         {
             "id": t.id,
-            "from_account_id": t.from_account_id,
-            "to_account_id": t.to_account_id,
+            "from_account_number": t.from_account_number,
+            "to_account_number": t.to_account_number,
             "amount": float(t.amount),
             "type": t.type,
             "description": t.description,
@@ -95,15 +95,15 @@ def get_transaction(transaction_id):
     if not transaction:
         return jsonify({"error": "Transaction not found"}), 404
 
-    # make sure user has access
-    user_account_ids = [acc.id for acc in Account.query.filter_by(user_id=user_id).all()]
-    if transaction.from_account_id not in user_account_ids and transaction.to_account_id not in user_account_ids:
+    # Pastikan user memiliki akses ke transaksi tersebut
+    user_account_numbers = [acc.account_number for acc in Account.query.filter_by(user_id=user_id).all()]
+    if transaction.from_account_number not in user_account_numbers and transaction.to_account_number not in user_account_numbers:
         return jsonify({"error": "Unauthorized"}), 403
 
     return jsonify({
         "id": transaction.id,
-        "from_account_id": transaction.from_account_id,
-        "to_account_id": transaction.to_account_id,
+        "from_account_number": transaction.from_account_number,
+        "to_account_number": transaction.to_account_number,
         "amount": float(transaction.amount),
         "type": transaction.type,
         "description": transaction.description,

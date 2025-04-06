@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from app.models.users import User
-from app.utils.auth import verify_token, hash_password
+from app.utils.auth import hash_password, verify_token
 from app.db import db
 
 user_bp = Blueprint("users", __name__)
@@ -13,6 +13,7 @@ def get_current_user(request):
     user_id = verify_token(token)
     return User.query.get(user_id)
 
+# GET /users/me
 @user_bp.route("/me", methods=["GET"])
 def get_profile():
     user = get_current_user(request)
@@ -26,6 +27,7 @@ def get_profile():
         "created_at": user.created_at.isoformat()
     })
 
+# PUT /users/me
 @user_bp.route("/me", methods=["PUT"])
 def update_profile():
     user = get_current_user(request)

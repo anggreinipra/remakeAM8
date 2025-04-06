@@ -1,27 +1,39 @@
 from datetime import datetime
+import random
 from app.db import db
 
 class Account(db.Model):
     __tablename__ = "accounts"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    account_type = db.Column(db.String(255), nullable=False)
-    account_number = db.Column(db.String(255), unique=True, nullable=False)
-    balance = db.Column(db.Numeric(10, 2), default=0.00, nullable=False)
+    account_number = db.Column(db.String(15), unique=True, nullable=False, default=lambda: Account.generate_account_number())
+    balance = db.Column(db.Numeric(12, 2), nullable=False, default=0.0)
+    user_id = db.Column(db.String(4), db.ForeignKey('users.user_id'), nullable=False)  # Link ke user_id
+    
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, onupdate=datetime.utcnow)
 
-    transactions_from = db.relationship("Transaction", foreign_keys='Transaction.from_account_id', backref="from_account", lazy=True)
-    transactions_to = db.relationship("Transaction", foreign_keys='Transaction.to_account_id', backref="to_account", lazy=True)
+    # Relasi ke User
+    user = db.relationship("User", backref="accounts", lazy=True)
+
+    @staticmethod
+    def generate_account_number():
+        """Generate account number in the format 'DDMMYY-XXXXXX'"""
+        while True:
+            date_str = datetime.now().strftime("%d%m%y")
+            random_num = random.randint(100000, 999999)  # Generates a 6-digit random number
+            account_number = f"{date_str}-{random_num}"
+
+            # Cek apakah account number sudah ada
+            if not Account.query.filter_by(account_number=account_number).first():
+                return account_number
 
     def to_dict(self):
         return {
             "id": self.id,
-            "user_id": self.user_id,
-            "account_type": self.account_type,
             "account_number": self.account_number,
-            "balance": float(self.balance),
-            "created_at": self.created_at.isoformat(),
-            "updated_at": self.updated_at.isoformat()
+            "balance": str(self.balance), 
+            "user_id": self.user_id,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None
         }
