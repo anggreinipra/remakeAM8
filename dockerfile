@@ -8,12 +8,19 @@ ENV PYTHONUNBUFFERED 1
 # Set working directory
 WORKDIR /app
 
+# Install curl
+RUN apt-get update && apt-get install -y curl
+
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.cargo/bin:${PATH}"
+
 # Install dependencies
 COPY requirements.txt .
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
-# Copy semua source code ke dalam container
+# Copy source code
 COPY . .
 
-# Jalankan aplikasi dengan uv (bukan uvicorn)
-CMD ["uv", "icorn", "main:app", "--host", "0.0.0.0", "--port", "5000"]
+# Run app
+CMD ["python", "main.py"]

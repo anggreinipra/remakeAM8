@@ -11,6 +11,4 @@ def init_db(app):
     migrate.init_app(app, db)
     jwt.init_app(app)
 
-    with app.app_context():
-        from app.models import user, account, transaction
-        db.create_all()
+    from app.models import User, Account, Transaction
